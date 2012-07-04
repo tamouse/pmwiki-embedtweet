@@ -1,4 +1,4 @@
-<?php if(!defined('PmWiki'))exit(); // Time-stamp: <2012-07-04 15:40:28 tamara>
+<?php if(!defined('PmWiki'))exit(); // Time-stamp: <2012-07-04 16:31:17 tamara>
 /** embedtweet.php
  *
  * Copyright (C) 2012 by Tamara Temple
@@ -33,7 +33,9 @@ $RecipeInfo['EmbedTweet']['Version'] = '2012-07-04';
 SDV($EnableEmbedTweet,0); // set $EnableEmbedTweet=1; in local/config.php
 SDV($ETweet_API_URL,'https://api.twitter.com/1/statuses/oembed.json');
 
-Markup('EmbedTweet','>block','/\\[tweet\s*(.*?)\\]/ei','ETw_HandleTweet($1)');
+$HTMLFooterFmt[] = '<script src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>'; // get the twitter widget in the page
+
+Markup('EmbedTweet','<inline','/\\[tweet\s*(.*?)\\]/ei',"ETw_HandleTweet('$1')");
 /**
  * Handle the embedding of the tweet
  *
@@ -47,9 +49,11 @@ function ETw_HandleTweet ($parms='')
   if (!IsEnabled($EnableEmbedTweet,false)) return;
   if (empty($parms)) return;
   $args = ParseArgs($parms);
-  if (isset($args['url'])) $args['url'] = urlencode($args['url']);
+  @sms('args: ',$args,__FILE__,__LINE__,__FUNCTION__);
   $tweet = ETw_FetchTweet($args);
+  @sms('tweet: ',$tweet,__FILE__,__LINE__,__FUNCTION__);
   $embed = ETw_FormatTweet($tweet);
+  @sms('embed: ',$embed,__FILE__,__LINE__,__FUNCTION__);
   return(Keep($embed));
 } // END function ETw_HandleTweet
 
@@ -90,7 +94,7 @@ function ETw_FetchTweet ($args)
  **/
 function ETw_FormatTweet ($tweet)
 {
-  $decoded = json_decode($tweet);
+  $decoded = json_decode($tweet,true);
   if (isset($decoded['errors'])) {
     // an error occured, return it
     $embed = $decoded['errors'][0]['message'] .
@@ -105,3 +109,39 @@ function ETw_FormatTweet ($tweet)
   }
   return $embed;
 } // END function ETw_FormatTweet
+
+/**
+ * Build the URL needed to make the tweet request
+ *
+ * @returns string - url to send
+ * @author Tamara Temple <tamara@tamaratemple.com>
+ * @param array $args - arguments to twitter API
+ **/
+function ETw_BuildURL ($args)
+{
+  global $ETweet_API_URL;
+  if (isset($args['id'])) {
+    //prefer id over url
+    $query['id'] = $args['id'];
+  } elseif (isset($args['url'])) {
+    // use url
+    $query['url'] = $args['url'];
+  } else {
+    // neither id or url given
+    return false;
+  }
+  $api_parms=array('maxwidth','hide_media','hide_thread','omit_script','align','related','lang');
+  foreach ($args as $key => $value) {
+    if (in_array($key,$api_parms))
+      {
+	$query[$key] = $value;
+      }
+  }
+
+  $query['omit_script']='true';
+
+  $q_str = http_build_query($query);
+  $q_str = $ETweet_API_URL . '?' . $q_str;
+  return $q_str;
+
+} // END function ETw_BuildURL
