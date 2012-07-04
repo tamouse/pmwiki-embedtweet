@@ -1,4 +1,4 @@
-<?php if(!defined('PmWiki'))exit(); // Time-stamp: <2012-07-04 16:31:17 tamara>
+<?php if(!defined('PmWiki'))exit(); // Time-stamp: <2012-07-04 17:20:12 tamara>
 /** embedtweet.php
  *
  * Copyright (C) 2012 by Tamara Temple
@@ -22,6 +22,60 @@
  * \license   GPLv3
  * \version   0.1
  *
+ * INSTALLATION
+ * ============
+ *
+ * To install this recipe, download it and copy it into your wiki's
+ * cookbook directory, then add the following lines to your local/config.php
+ * file:
+ *
+ *   $EnableEmbedTweet=true;
+ *   include_once("$FarmD/cookbook/embedtweet.php");
+ *
+ * USAGE
+ * =====
+ *
+ * To use, simply include the following in your wiki page text:
+ *
+ *    [tweet id=<status id of tweet>]
+ *
+ * Alternately, you can use the URL of the particular status:
+ *
+ *    [tweet url=https://twitter.com/<user>/status/<status code>]
+ *
+ * Both of these can be obtained for a tweet on the twitter web site
+ * by clicking on the "Expand" link in the tweet, then on "Embed this Tweet"
+ * and selecting Link tab. The status id is the last string of digits
+ * in the path. If you choose to url method, use the entire link
+ * shown.
+ *
+ * Additional parameters are described on the API document at
+ * <https://dev.twitter.com/docs/api/1/get/statuses/oembed>
+ * but note that the omit_script is always set to true and the
+ * script is linked in the html footer automatically by the recipe.
+ *
+ * For future-proofing, there are two customizable variables that
+ * deal with the functionality provided by twitter.
+ *
+ *   $ETweet_API_URL is the url of API call that returns the
+ *   contents of the tweet desired.
+ *
+ *   $ETweet_Widget_Script is the HTML that will include the
+ *   widget script from twitter in the page footer.
+ *
+ * Neither of these should be set or changed unless the twitter API
+ * changes.
+ *
+ * TODO:
+ * * Provide a means of saving the tweet instead of fetching it each time.
+ *   This will also prevent losing the tweet in the case it disappears
+ *   from twitter, or twitter is inaccessible for some reason.
+ *
+ * NOTE:
+ * * Some twitter feeds are inaccessible by outside sources, unless
+ *   the caller is an authenticated user, and is allowed to view
+ *   the tweet. Currently, there is nothing in twitter's oembed API
+ *   that can get around this.
  */
 
 // Version of this recipe
@@ -32,8 +86,9 @@ $RecipeInfo['EmbedTweet']['Version'] = '2012-07-04';
 
 SDV($EnableEmbedTweet,0); // set $EnableEmbedTweet=1; in local/config.php
 SDV($ETweet_API_URL,'https://api.twitter.com/1/statuses/oembed.json');
+SDV($ETweet_Widget_Script,'<script src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>');
 
-$HTMLFooterFmt[] = '<script src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>'; // get the twitter widget in the page
+$HTMLFooterFmt[] = $ETweet_Widget_Script;
 
 Markup('EmbedTweet','<inline','/\\[tweet\s*(.*?)\\]/ei',"ETw_HandleTweet('$1')");
 /**
@@ -49,11 +104,8 @@ function ETw_HandleTweet ($parms='')
   if (!IsEnabled($EnableEmbedTweet,false)) return;
   if (empty($parms)) return;
   $args = ParseArgs($parms);
-  @sms('args: ',$args,__FILE__,__LINE__,__FUNCTION__);
   $tweet = ETw_FetchTweet($args);
-  @sms('tweet: ',$tweet,__FILE__,__LINE__,__FUNCTION__);
   $embed = ETw_FormatTweet($tweet);
-  @sms('embed: ',$embed,__FILE__,__LINE__,__FUNCTION__);
   return(Keep($embed));
 } // END function ETw_HandleTweet
 
